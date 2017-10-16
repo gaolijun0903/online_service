@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<style>
+		.wrapper{
+			width: 300px;
+			height: 500px;
+			border: 2px solid green;
+		}
+	</style>
+	<script src="../js/vue-v2.5.2.js"></script>
+	<script src="../js/vue-router-v2.8.1.js"></script>
+</head>
+<body>
+	<div id="app">
+		<div class="wrapper">
+			<router-view></router-view>
+		</div>
+	</div>
+	
+	<template id="center">
+		<div class="center">
+			<h1>客服中心</h1>
+			<ul>
+				<li>
+					<router-link to="/detail/1">怎么查询之前的订单</router-link>
+				</li>
+				<li>
+					<router-link to="/detail/2">无法登陆怎么办？</router-link>
+				</li>
+			</ul>
+			<router-link to="/feedback">
+				<div class="feedback">
+					<div class="feedback-btn">功能反馈</div>
+				</div>
+			</router-link>
+		</div>
+		
+	</template>
+	<template id="detail">
+		<div class="detail">
+			<h1>这是问题详情页{{id}}</h1>
+		</div>
+	</template>
+	<template id="feedback">
+		<div class="feedback">
+			<h1>gongneng fankui</h1>
+		</div>
+	</template>
+	<script>
+		var Center = { template: '#center' }
+		var Detail = { 
+			template: '#detail',
+			data:function(){
+				return {
+					id:this.$route.params.id
+				}
+			} 
+		}
+		var Feedback = { template: '#feedback' }
+
+		var routes = [
+		  { path: '/', component: Center },
+		  { path: '/center', component: Center },
+		  { path: '/detail/:id', component: Detail },
+		  { path: '/feedback', component: Feedback }
+		]
+
+		var router = new VueRouter({
+		  routes: routes
+		})
+
+		
+		var app = new Vue({
+		  router:router
+		}).$mount('#app')
+
+	</script>
+</body>
+</html>
