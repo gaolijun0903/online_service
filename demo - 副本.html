@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <title>客服中心</title>
+	
+	<link rel="stylesheet" type="text/css" href="../style/reset.css">
+	<link rel="stylesheet" type="text/css" href="../style/common.css">
+	<link rel="stylesheet" type="text/css" href="../style/center.css">
+	
+	<script src="../js/flexible.js"></script>
+	<script src="../js/vue-v2.5.2.js"></script>
+	<script src="../js/vue-router-v2.8.1.js"></script>
+	<script src="../js/vue-resource-v1.3.4.js"></script>
+	<script src="../data/callCenter.js"></script>
+	<script src="../data/questionList.js"></script>
+	<script src="../config.js"></script>
+	<script src="../js/zepto.min.js"></script>
+</head>
+<body>
+	<div id="app" v-cloak>
+		<keep-alive>
+	    	<router-view></router-view>
+	    </keep-alive>
+	</div>
+	
+	<template id="center">
+		<div class="center">
+            <div class="banner">
+                <a href="https://www.yongche.com/cms/page/2017/01/16182851.html"></a>
+            </div>
+            <div class="hot">
+                <h4 class="co-title">热点问题</h4>
+                <ul class="co-list">
+                    <li v-for="hot in hots" @click="toDetail(hot.question_id)">
+                        {{hot.title}}
+                    </li>
+                </ul>
+            </div>
+            <div class="more">
+                <h4 class="co-title">更多问题分类</h4>            
+                <ul class="clearfix">
+                    <li class="left" v-for="item in groupType" @click="toGroup(item.type_id,item.title)">
+                        <dl>
+                            <dt>{{item.title}}</dt>
+                            <dd>{{item.des}}</dd>
+                        </dl>
+                    </li>
+                </ul>
+            </div>
+            <div class="feedback-wrapper" @click="gofeedback">
+                <div class="feedback-btn">功能反馈</div>
+            </div>
+        </div>
+	</template>
+	<template id="detail">
+		<div class="detail-wrapper">
+			<div id="container">
+		        <div class="detail">
+		            <div class="question-title" v-cloak>{{detailData.title}}</div>
+		            <div class="text" v-cloak>{{detailData.reasion}}</div>
+		            <ul>
+		                <li v-for="reasion in detailData.reasionlist" v-cloak>{{reasion.text}}</li>
+		                <li class="detail-img" v-if="!!detailData.imgUrl">
+		                    <img v-bind:src="detailData.imgUrl" alt="">
+		                </li>
+		                <li v-else class="no-img"></li>
+		            </ul>
+		            <div class="help">
+		                <span>这个回答对我来说：</span>
+		                <span class="have-help" v-on:click="choose(true,$event)">
+		                    <i class="icon" v-bind:class='{choose:isChoose&&isHelp}'></i>有帮助
+		                </span>
+		                <span class="no-help" v-on:click="choose(false,$event)">
+		                    <i class="icon" v-bind:class='{choose:isChoose&&!isHelp}'></i>没帮助
+		                </span>
+		            </div>
+		        </div>
+
+		        <div class="other">
+		            <h4 class="title">相关问题</h4>
+		            <ul class="list">
+		                <li v-cloak v-for="question in quelist " v-on:click="toDetail(question.id)">{{question.title}}</li>
+		            </ul>
+		        </div>
+
+		        <div class="service">
+		            <h4 class="title">联系客服</h4>
+		            <ul class="list">
+		                <li v-if="showTelService" v-cloak>
+		                    <a href="tel:4000500090" class="tel" style="color:#ff5252">
+		                        <i class="icon tel"></i>
+		                        电话客服
+		                        <div style="display: inline-block;color: #999999;margin-left: 3rem;">400-050-0090</div>
+		                    </a>
+		                </li> 
+		                <li>
+		                    <a class="servicer" :href={{serciceUrl}}>
+		                        <i class="icon"></i>
+		                        在线客服
+		                    </a>
+		                </li>
+		                <li>
+		                    <a class="servicer" :href={{emailServiceUrl}}>
+		                        <i class="icon email"></i>
+		                        邮箱客服
+		                    </a>
+		                </li>
+		                <li v-if="!showTelService" v-cloak>
+		                    <a class="servicer" :href={{callBackUrl}}>
+		                        <i class="icon callback"></i>
+		                        预约回拨
+		                    </a>
+		                </li>
+		            </ul>
+		        </div>
+
+		        <div v-cloak class="hasReserve" v-show="(!showTelService)&&hasReserveService">
+		            您已预约24小时内客服回拨，请注意接听
+		        </div>
+		    </div>
+		    <div class="mask hide" id="mask">
+		        <div class="mask_content">我们已经记录下了您的反馈</div>
+		    </div>
+		</div>
+	</template>
+	<template id="group">
+		<div class="group">
+			<h1>更多问题分类{{id}}</h1>
+		</div>
+	</template>
+	<template id="feedback" >
+		<div class="feedback">
+            <div style="height:100%" v-show="!showlinks">
+                <div class="choose-type" @click="showLinks">{{selectLink.text}}</div>
+                <div class="opinion-wrapper">
+                    <textarea class="opinion" ref="opinion" placeholder="请给出您的意见~" v-model="opinions" maxlength="100"  @keyup="substring"></textarea>
+                </div>
+                <div class="count">
+                    <span class="num">{{countNum}}/</span>100
+                </div>
+                <div id="submit-wrapper" class="submit-wrapper">
+                    <div class="submit" :class="{'disabled':!canSubmit}" @click="submit">提交</div>
+                </div>
+            </div>
+            <div class="service-links" v-show="showlinks" @click="hideLinks">
+                <h4 class="service-link-title">请选择服务环节</h4>
+                <ul class="service-link-list">
+                    <li  class="service-link-item" v-cloak v-for="item in serviceLinks" @click="selectItem(item)">
+                        {{item.text}}
+                    </li>
+                </ul>
+            </div>
+            <div class="mask service-confirm" v-show="showconfirm">
+                <div class="mask_cont">
+                    <div class="mask-text">确认放弃已编辑内容？</div>
+                    <div class="btn-wrap">
+                        <div class="btn yes"  @click="confirm">确认</div>
+                        <div class="btn no" @click="cancel">取消</div>
+                    </div>
+                </div>
+            </div>
+            <div class="toast" v-show="toastSucc">{{toastText}}</div>
+        </div>
+	</template>
+	<script>
+		var Center = { 
+			template: '#center',
+			data:function(){
+				return {
+	                hots:[],
+	                groupType:[]
+				}
+			},
+			mounted:function(){
+				this.modifyTitle('客服中心');
+				this.initData();
+			},
+			methods:{
+				initData:function(){
+					this.hots=callCenterData.hots;
+		            this.title=callCenterData.title;
+		            this.groupType=callCenterData.groupType;
+		            this.getUserInfo();
+				},
+				toDetail: function(id) {
+					this.$router.push({
+						path:"/detail/"+id
+					})
+	            },
+	            toGroup: function(typeId,title) {
+	            	this.$router.push({
+						path:"/group/"+typeId
+					})
+	            },
+	            gofeedback:function(){
+	            	this.$router.push({
+						path:"/feedback"
+					})
+	            },
+	            modifyTitle:function(title){
+	            	document.title = title;
+		            var isiOS = !!navigator.userAgent.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/); 
+		            if(isiOS){
+		                var url = "yongche://refreshTitle?title="+title;
+		                window.location.href=url;
+		            }
+	            },
+	            getUserInfo:function(){
+	            	var userInfo=this.getCookie('onlineservice_userInfo');
+	                if(userInfo){
+	                    userInfo=JSON.parse(userInfo);
+	                    if(userInfo.level_id>=3||userInfo.is_corp){
+	                        this.groupType[0].des="取消订单 电话客服";
+	                    }
+	                    return;
+	                }
+	                this.$http.get(config.userInfoApi).then(function(data){
+					    if(data&&data.code==200){                     
+                            userInfo=data.result;
+                            if(userInfo.level_id>=3||userInfo.is_corp){
+                                this.groupType[0].des="取消订单 电话客服";
+                            }else{
+                                this.groupType[0].des="取消订单 订单疑义";
+                            }
+                            this.setCookie('onlineservice_userInfo',JSON.stringify(data.result));
+                        }
+                        else{
+                            console.log(data.msg);
+                        }
+					}, function(response){
+					    console.log('获取用户信息失败_ajax_error');
+					});
+						                
+	            },
+	            getCookie:function(name){ 
+				    var arr,reg=new RegExp("(^| )"+name+"=([^;]*)(;|$)");
+				    if(arr=document.cookie.match(reg)){
+				        return unescape(arr[2]);
+				    }
+				    else {
+				        return null;
+				    }
+				},
+				setCookie:function (name, value){ 
+				    var argv = setCookie.arguments; 
+				    var argc = setCookie.arguments.length; 
+				    var expires = (argc > 2) ? argv[2] : null; 
+				    if(expires!=null){ 
+				        var LargeExpDate = new Date (); 
+				        LargeExpDate.setTime(LargeExpDate.getTime() + (expires*1000*3600*24));
+				    } 
+				    document.cookie = name + "=" + escape (value)+((expires == null) ? "" : ("; expires=" +LargeExpDate.toGMTString()));
+				}
+			}
+		}
+		var Detail = { 
+			template: '#detail',
+			data:function(){
+				return {
+					id:this.$route.params.id,
+					showTelService:false,
+	                apiUrl:"../data/questionList.json",
+	                userInfoApi:config.userInfoApi,
+	                detailData:"",
+	                quelist:"",
+	                isChoose:false,
+	                isHelp:true,
+	                detailUrl:"",
+	                serciceUrl:"",
+	                hasReserveService:false,
+	                checkReserveApi:config.YCAppointmentQueryApi,
+				}
+			},
+            computed:{
+                emailServiceUrl:function(){
+                    return "./emailService.html?emailBackUrl="+encodeURIComponent(window.location.href);
+                },
+                callBackUrl:function(){
+                    return "./callBack.html?callBackUrl="+encodeURIComponent(window.location.href);
+                }
+            },
+            mounted:function(){
+
+                this.detailData=questionListData[this.id];
+                this.quelist=this.detailData.quelist;
+
+                // this.detailUrl=createUrl("quesDetail.html");
+                // this.detailUrl+="&id=";
+                // this.serciceUrl=createUrl("https://yongche.live800.com/live800/chatClient/chatbox.jsp");
+                // this.getUserInfo();
+
+            },
+            methods: {
+                toDetail: function(id) {
+                    window.location.href =vm.detailUrl+id+"";
+                },
+                choose:function(isHelp,event){
+                    event.stopPropagation();
+                    event.preventDefault();
+                    if(this.isChoose){
+                        if(this.isHelp!=isHelp){
+                            this.isHelp=isHelp;
+                            return;
+                        }else{
+                            this.isChoose=false;
+                            // var mask=document.getElementById("mask");
+                            // mask.classList.remove("hide");
+                            // setTimeout(function(){
+                            //     mask.classList.add("hide");
+                            // },1500);
+                        }
+                        
+                    }else{
+                        this.isChoose=true;
+                        this.isHelp=isHelp;
+                    }
+                },
+                getUserInfo:function(){
+                    var that=this;
+                    var userInfo=sessionStorage['onlineservice_userInfo'];
+                    if(userInfo){
+                        that.userInfo=JSON.parse(userInfo);
+                        if(that.userInfo.level_id>=3||that.userInfo.is_corp){
+                            that.showTelService=true;
+                        }else{
+                            that.showTelService=false;
+                        }
+                        $.ajax({
+                            type:"GET",
+                            url:that.checkReserveApi,
+                            data:{'userID':that.userInfo.user_id,"apptype":1,"vip":0},
+                            dataType:'json',
+                            success:function(data){
+                                if(data&&data.success==1){                     
+                                    if(data&&data.data&&data.data.custAppointmentNum>0){
+                                        that.hasReserveService=true;
+                                    }else{
+                                        that.hasReserveService=false;
+                                    }
+                                }
+                                else{
+                                    console.log(data.error);
+                                }
+                            },
+                            error:function(){
+                                console.log('查询预约信息失败_ajax_error');
+                            }
+                        });
+                        return true;
+                    }
+                    $.ajax({
+                        type:"GET",
+                        url:that.userInfoApi,
+                        data:{},
+                        dataType:'json',
+                        xhrFields: {
+                            withCredentials: true
+                        },
+                        crossDomain: true,
+                        success:function(data){
+                            if(data&&data.code==200){                     
+                                that.userInfo=data.result;
+                                if(that.userInfo.level_id>=3||that.userInfo.is_corp){
+                                    that.showTelService=true;
+                                }else{
+                                    that.showTelService=false;
+                                }
+                                //sessionStorage['onlineservice_userInfo']=JSON.stringify(data.result);
+                                $.ajax({
+                                    type:"GET",
+                                    url:that.checkReserveApi,
+                                    data:{'userID':that.userInfo.user_id,"apptype":1,"vip":0},
+                                    dataType:'json',
+                                    success:function(data){
+                                        if(data&&data.success==1){                     
+                                            if(data&&data.data&&data.data.custAppointmentNum>0){
+                                                that.hasReserveService=true;
+                                            }else{
+                                                that.hasReserveService=false;
+                                            }
+                                        }
+                                        else{
+                                            console.log(data.error);
+                                        }
+                                    },
+                                    error:function(){
+                                        console.log('查询预约信息失败_ajax_error');
+                                    }
+                                });
+                            }
+                            else{
+                                console.log(data.msg);
+                            }
+                        },
+                        error:function(){
+                            console.log('获取用户信息失败_ajax_error');
+                        }
+                    })
+                }
+            }
+		}
+		var Group = { 
+			template: '#group',
+			data:function(){
+				return {
+					id:this.$route.params.type_id
+				}
+			} 
+		}
+		var Feedback = { 
+			template: '#feedback',
+			data:function(){
+				return {
+	                showlinks:false,
+	                showconfirm:false,
+	                tran:null,
+	                selectLink:{id:-1,text:'请选择问题分类'},
+	                opinions:'',
+	                countNum:0,
+	                canSubmit:false,
+	                submitFeedback:config.submitFeedback,
+	                serviceLinks:[
+	                    {id:0,text:'发布订单'},
+	                    {id:1,text:'等待司机'},
+	                    {id:2,text:'乘车中'},
+	                    {id:3,text:'支付'},
+	                    {id:4,text:'服务评价'},
+	                    {id:5,text:'安全与隐私'},
+	                    {id:6,text:'客户服务'},
+	                    {id:7,text:'软件问题'},
+	                    {id:8,text:'其他'}
+	                ],
+	                toastSucc:false,
+	                toastText:''
+	            }
+			},
+	        mounted:function(){
+	            this.modifyTitle('功能反馈');
+	        },
+	        methods:{
+	            showLinks:function(){
+	                this.showlinks = true;
+	            },
+	            hideLinks:function(){
+	                this.showlinks = false;
+	            },
+	            selectItem:function(item){
+	                this.selectLink = item;
+	                this.hideLinks();
+	                if(this.countNum>0 && this.selectLink.id>=0){
+	                    this.canSubmit = true
+	                }else{
+	                    this.canSubmit = false
+	                }
+	            },
+	            confirm:function(){
+	                this.showconfirm = false;
+	                if(this.tran){
+	                    this.tran.next()
+	                }
+	            },
+	            cancel:function(){
+	                this.showconfirm = false;
+	                router.go({name:'feedback'})
+	            },
+	            submit:function(){
+	                if(this.canSubmit){
+	                    this.canSubmit = false;
+	                    this.$http.post(this.submitFeedback,{
+	                            feedback_content:this.opinions,
+	                            question_category:this.selectLink.text,
+	                            access_token: this.getCookie('_app_token_v3'),
+	                            nonce:'some'
+	                        }).then(function(data){
+	                        	if(data&&data.ret_code==200){ 
+	                               this.toast(data.result);
+	                               this.opinions= '';
+	                               this.selectLink = {id:-1,text:'请选择问题分类'};
+	                            }
+	                            else{
+	                                this.toast(data.ret_msg);
+	                                this.opinions= '';
+	                               this.selectLink = {id:-1,text:'请选择问题分类'};
+	                            }
+	                    }, function(){
+	                    		this.opinions= '';
+	                            this.selectLink = {id:-1,text:'请选择问题分类'};
+	                            this.toast('获取用户信息失败_ajax_error');
+	                            console.log('获取用户信息失败_ajax_error');
+	                    });
+	                    
+	                }
+	            },
+	            substring:function(){
+	                if(this.countNum>=100){
+	                    this.opinions = this.opinions.substring(0,100)
+	                }
+	            },
+	            trim:function(str){
+	                 // 取出回车字符
+	                var textareaVal =( (str.replace(/<(.+?)>/gi,"&lt;$1&gt;")).replace(/ /gi,"&nbsp;")).replace(/\n/gi,"|");
+	                 // 回车数量
+	                var entLen = textareaVal.split('|').length-1;
+	                // 不包含回车的数量
+	                var strLen = textareaVal.split('|').join('').length;
+	                console.log(this.$refs.opinion)
+	                //this.$refs.opinion.attr('maxlength',100+(entLen));
+	                $('.opinion').attr('maxlength',100+(entLen));
+	                return str.replace(/(^\s*)|(\s*$)/g,'')
+	            },
+	            toast:function(text){
+	                this.toastText = text;
+	                this.toastSucc = true;
+	                var vm = this;
+	                setTimeout(function(){
+	                    vm.toastSucc = false;
+	                },1000)
+	            },
+	            modifyTitle:function(title){
+	            	document.title = title;
+		            var isiOS = !!navigator.userAgent.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/); 
+		            if(isiOS){
+		                var url = "yongche://refreshTitle?title="+title;
+		                window.location.href=url;
+		            }
+	            },
+	            getCookie:function(name){
+	                var arr,reg=new RegExp("(^| )"+name+"=([^;]*)(;|$)");
+	                if(arr=document.cookie.match(reg)){
+	                    return unescape(arr[2]);
+	                }
+	                else {
+	                    return null;
+	                }
+	            }
+	        },
+	        watch:{
+	            opinions:function(newVal,oldVal){
+	                this.opinions = this.trim(newVal)
+	                this.countNum = this.opinions.length;
+	                if(this.countNum>0 && this.selectLink.id>=0){
+	                    this.canSubmit = true
+	                }else{
+	                    this.canSubmit = false
+	                }
+	            }
+	        },
+	        route: {
+	            deactivate: function (transition) {
+	              if(this.opinions.length>0){
+	                this.showconfirm = true;
+	                this.tran  = transition;
+	              }else{
+	                transition.next()
+	              }
+	            }
+	        }
+		}
+
+		var routes = [
+		  { path: '/', component: Center },
+		  { path: '/center', component: Center },
+		  { path: '/group/:type_id', component: Group },
+		  { path: '/detail/:id', component: Detail },
+		  { path: '/feedback', component: Feedback }
+		]
+
+		var router = new VueRouter({
+		  routes: routes
+		})
+		var app = new Vue({
+		  router:router
+		}).$mount('#app')
+
+	</script>
+</body>
+</html>
